@@ -7,17 +7,20 @@ int main() {
 	std::string fileName = "C:\\Users\\Max\\Downloads\\Frozen II. (2019).mkv";
 	fStorage.openForRead(fileName);
 	srand(time(NULL));
-	/*
+	
 	while (true) {
 		int frameCount = fStorage.getNumFrames();
 		int frameNumber = rand() % frameCount;
 		auto frame = fStorage.getFrameByIndex(frameNumber);
 	}	
-	*/
+
+	/*
 	int frameCount = fStorage.getNumFrames();
 	for (int i = 0; i < frameCount; i+=1000) {
 		auto frame = fStorage.getFrameByIndex(i);
-	}
+	}	
+	*/
+
 	
 	return 0;
 }
