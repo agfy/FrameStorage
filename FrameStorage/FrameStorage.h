@@ -28,6 +28,7 @@ public:
 
 private:
 	int err;
+	int prevFrameIndex;
 	CompressionType cType;
 	AVFormatContext* format_context;
 	AVCodecContext* codec_context; // AVCodecContext - information about the codec

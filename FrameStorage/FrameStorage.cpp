@@ -8,6 +8,7 @@ FrameStorage::FrameStorage(CompressionType type) {
 	frame = av_frame_alloc();
 	framergb = av_frame_alloc();
 	format_context = NULL;
+	prevFrameIndex = 0;
 }
 
 int64_t FrameToPts(AVStream* pavStream, int frame) {
@@ -35,62 +36,69 @@ cv::Mat FrameStorage::getFrameByIndex(int frameIndex) {
 	}
 
 	int64_t seekTarget = FrameToPts(format_context->streams[video_stream], frameIndex);
-	std::cout << "wanted " << seekTarget << std::endl;
+	std::cout << "want " << seekTarget << std::endl;
 	int64_t curSeekTarget = seekTarget;
-	int64_t curPacketPts = seekTarget;
-	
+
+	int err;
+	if (prevFrameIndex > frameIndex) {
+		err = av_seek_frame(format_context, video_stream, seekTarget, 0);
+	}
+	else {
+		err = av_seek_frame(format_context, video_stream, seekTarget, AVSEEK_FLAG_BACKWARD);
+	}
+	if (err < 0) {
+		fprintf(stderr, "ffmpeg: av_seek_frame failed\n");
+		return cv::Mat{};
+	}
+	prevFrameIndex = frameIndex;
+
 	//seek until we have packet before target pts
-	while (curPacketPts >= seekTarget) {
-		if (av_seek_frame(format_context, video_stream, curSeekTarget, 0) < 0) {
-			fprintf(stderr, "ffmpeg: av_seek_frame failed\n");
-			return cv::Mat{};
-		}	
-	
+	while (curSeekTarget > 0) {
+		bool firstFrame = true;
+		//decode until we have packet after target pts
 		while (av_read_frame(format_context, &packet) >= 0) {
 			if (packet.stream_index == video_stream) {
-				if (packet.pts > seekTarget) {
-					frameIndex -= 500;
-					if (frameIndex < 0) {
-						frameIndex = 0;
-					}
-					curSeekTarget = FrameToPts(format_context->streams[video_stream], frameIndex);
-					break;
+				// Video stream packet
+				int frame_finished;
+				// Decode AVPacket
+				if (avcodec_decode_video2(codec_context, frame, &frame_finished, &packet) < 0) {
+					fprintf(stderr, "ffmpeg: avcodec_decode_video2 failed\n");
+					return cv::Mat{};
 				}
-				else {
-					curPacketPts = packet.pts;
-					break;
+				// frame_finished is positive if AVFrame completely decoded. AVFrame can be stored in multiple AVPackets
+				if (frame_finished) {
+					if (firstFrame && frame->pts > seekTarget) {
+						break;
+					}
+					if (firstFrame) {
+						firstFrame = false;
+					}
+					if (frame->pts < seekTarget) {
+						continue;
+					}
+					std::cout << "got frame " << frame->pts << std::endl;
+					if (sws_scale(img_convert_context, frame->data, frame->linesize, 0, codec_context->height, framergb->data, framergb->linesize) < 0) {
+						fprintf(stderr, "ffmpeg: sws_scale failed\n");
+						return cv::Mat{};
+					}
+
+					cv::Mat mat(codec_context->height, codec_context->width, CV_8UC3, framergb->data[0], framergb->linesize[0]);
+					cv::imshow("frame", mat);
+					int k = cv::waitKey(0);
+
+					return mat;
 				}
 			}
 		}
-	}
 
-	//decode until we have packet after target pts
-	while (av_read_frame(format_context, &packet) >= 0) {
-		if (packet.stream_index == video_stream) {
-			// Video stream packet
-			int frame_finished;
-			// Decode AVPacket
-			if (avcodec_decode_video2(codec_context, frame, &frame_finished, &packet) < 0) {
-				fprintf(stderr, "ffmpeg: avcodec_decode_video2 failed\n");
-				return cv::Mat{};
-			}
-			// frame_finished is positive if AVFrame completely decoded. AVFrame can be stored in multiple AVPackets
-			if (frame_finished) {
-				if (frame->pts < seekTarget) {
-					continue;
-				}
-				std::cout << "got frame " << frame->pts << std::endl;
-				if (sws_scale(img_convert_context, frame->data, frame->linesize, 0, codec_context->height, framergb->data, framergb->linesize) < 0) {
-					fprintf(stderr, "ffmpeg: sws_scale failed\n");
-					return cv::Mat{};
-				}
-
-				cv::Mat mat(codec_context->height, codec_context->width, CV_8UC3, framergb->data[0], framergb->linesize[0]);
-				cv::imshow("frame", mat);
-				int k = cv::waitKey(0);
-
-				return mat;
-			}
+		frameIndex -= 50;
+		if (frameIndex < 0) {
+			frameIndex = 0;
+		}
+		curSeekTarget = FrameToPts(format_context->streams[video_stream], frameIndex);
+		if (av_seek_frame(format_context, video_stream, curSeekTarget, AVSEEK_FLAG_BACKWARD) < 0) {
+			fprintf(stderr, "ffmpeg: av_seek_frame failed\n");
+			return cv::Mat{};
 		}
 	}
 }
