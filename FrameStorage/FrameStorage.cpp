@@ -83,8 +83,8 @@ cv::Mat FrameStorage::getFrameByIndex(int frameIndex) {
 					}
 
 					cv::Mat mat(codec_context->height, codec_context->width, CV_8UC3, framergb->data[0], framergb->linesize[0]);
-					cv::imshow("frame", mat);
-					int k = cv::waitKey(0);
+					//cv::imshow("frame", mat);
+					//int k = cv::waitKey(0);
 
 					return mat;
 				}
