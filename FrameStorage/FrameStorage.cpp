@@ -28,6 +28,7 @@ int FrameStorage::getNumFrames() {
 
 cv::Mat FrameStorage::getFrameByIndex(int frameIndex) {
 	avcodec_flush_buffers(codec_context);
+	char errStr[100];
 
 	std::cout << "Getting " + std::to_string(frameIndex) + " frame\n";
 	if (!format_context) {
@@ -40,20 +41,21 @@ cv::Mat FrameStorage::getFrameByIndex(int frameIndex) {
 	int64_t curSeekTarget = seekTarget;
 
 	int err;
-	if (prevFrameIndex > frameIndex) {
+	if (prevFrameIndex < frameIndex) {
 		err = av_seek_frame(format_context, video_stream, seekTarget, 0);
 	}
 	else {
 		err = av_seek_frame(format_context, video_stream, seekTarget, AVSEEK_FLAG_BACKWARD);
 	}
 	if (err < 0) {
-		fprintf(stderr, "ffmpeg: av_seek_frame failed\n");
+		printf("%s", av_strerror(err, errStr, 100));
+		fprintf(stderr, "ffmpeg: av_seek_frame failed");
 		return cv::Mat{};
 	}
 	prevFrameIndex = frameIndex;
 
 	//seek until we have packet before target pts
-	while (curSeekTarget > 0) {
+	while (true) {
 		bool firstFrame = true;
 		//decode until we have packet after target pts
 		while (av_read_frame(format_context, &packet) >= 0) {
@@ -83,12 +85,17 @@ cv::Mat FrameStorage::getFrameByIndex(int frameIndex) {
 					}
 
 					cv::Mat mat(codec_context->height, codec_context->width, CV_8UC3, framergb->data[0], framergb->linesize[0]);
-					//cv::imshow("frame", mat);
-					//int k = cv::waitKey(0);
+					cv::imshow("frame", mat);
+					int k = cv::waitKey(0);
 
 					return mat;
 				}
 			}
+		}
+
+		if (frameIndex == 0) {
+			fprintf(stderr, "ffmpeg: frameIndex alredy zero\n");
+			return cv::Mat{};
 		}
 
 		frameIndex -= 50;
@@ -96,7 +103,8 @@ cv::Mat FrameStorage::getFrameByIndex(int frameIndex) {
 			frameIndex = 0;
 		}
 		curSeekTarget = FrameToPts(format_context->streams[video_stream], frameIndex);
-		if (av_seek_frame(format_context, video_stream, curSeekTarget, AVSEEK_FLAG_BACKWARD) < 0) {
+		err = av_seek_frame(format_context, video_stream, curSeekTarget, AVSEEK_FLAG_BACKWARD);
+		if (err < 0) {
 			fprintf(stderr, "ffmpeg: av_seek_frame failed\n");
 			return cv::Mat{};
 		}
