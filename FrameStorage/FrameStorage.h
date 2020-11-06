@@ -19,24 +19,31 @@ enum CompressionType {
 
 class FrameStorage{
 public:
-	FrameStorage(CompressionType type);
+	FrameStorage();
 	int getNumFrames();
-	cv::Mat getFrameByIndex(int);
-	void storeFrame(cv::Mat&);
+	void getFrameByIndex(int, cv::Mat&);
+	void storeFrame(cv::Mat&, int64_t);
+	void storeTheRest();
 	void openForRead(std::string&);
-	void openForWrite(std::string&);
+	void openForWrite(std::string&, int, int, CompressionType);
+	int getWidth();
+	int getHeight();
+	void closeFile();
+	int64_t frameToPts(int);
 
 private:
 	int err;
 	int prevFrameIndex;
-	CompressionType cType;
-	AVFormatContext* format_context;
-	AVCodecContext* codec_context; // AVCodecContext - information about the codec
+	AVFormatContext* formatContext;
+	AVCodecContext* codecContext; // AVCodecContext - information about the codec
 	AVCodec* codec; // AVCodec - codec itself
-	AVPacket packet;
+	AVPacket* packet;
 	AVFrame* frame;
 	AVFrame* framergb;
-	SwsContext* img_convert_context;
-	int video_stream;
+	SwsContext* imgConvertContext;
+	int videoStream;
 	int64_t timeBase;
+	int rgbLinesize[8];
+
+	FILE *file;
 };

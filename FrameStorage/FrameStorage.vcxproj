@@ -91,6 +91,7 @@
       <SDLCheck>false</SDLCheck>
       <ConformanceMode>true</ConformanceMode>
       <AdditionalIncludeDirectories>C:\Users\Max\Downloads\opencv\build\include;C:\Users\Max\Downloads\ffmpeg-4.2.3-win64-dev\include</AdditionalIncludeDirectories>
+      <CompileAs>Default</CompileAs>
     </ClCompile>
     <Link>
       <SubSystem>Console</SubSystem>
