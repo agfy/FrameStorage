@@ -263,7 +263,7 @@ void FrameStorage::openForWrite(std::string& filename, int width, int height, Co
 	else {
 		av_dict_set(&param, "crf", "18", 0);
 	}
-	
+
 	if (avcodec_open2(codecContext, codec, &param) < 0) {
 		fprintf(stderr, "Could not open codec: %s\n");
 		return;

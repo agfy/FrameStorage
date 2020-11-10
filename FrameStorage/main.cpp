@@ -22,16 +22,21 @@ int main() {
 
 	outputfStorage.storeTheRest();
 	outputfStorage.closeFile();
+	int retCode = system("C:\\Users\\Max\\source\\repos\\FrameStorage\\FrameStorage\\test_video\\ffmpeg.exe -framerate 30 -i C:\\Users\\Max\\source\\repos\\FrameStorage\\FrameStorage\\test_video\\output.h264 -c copy C:\\Users\\Max\\source\\repos\\FrameStorage\\FrameStorage\\test_video\\output.mp4");
 	
 	/*
 	srand(time(NULL));
 	
 	while (true) {
-	int frameCount = fStorage.getNumFrames();
+	int frameCount = inputfStorage.getNumFrames();
 		int frameNumber = rand() % frameCount;
-		auto frame = fStorage.getFrameByIndex(frameNumber);
-	}		
+		inputfStorage.getFrameByIndex(frameNumber, cvFrame);
+		cv::imshow("", cvFrame);
+		cv::waitKey();
+	}	
 	*/
+
+	
 
 	//std::vector<int> frameIDs = { 1, 10, 5, 11, 20, 12, 70, 40, 3 };
 	//for (auto fID: frameIDs) {
