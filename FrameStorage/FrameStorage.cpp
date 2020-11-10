@@ -34,14 +34,22 @@ void FrameStorage::getFrameByIndex(int frameIndex, cv::Mat& cvFrame) {
 
 	int64_t seekTarget = frameToPts(frameIndex);
 	std::cout << "want " << seekTarget << std::endl;
-	int64_t curSeekTarget = seekTarget;
+	int64_t curSeekTarget;
+
+	int frameCount = getNumFrames();
+	if (frameIndex > frameCount - 50){
+		curSeekTarget = frameToPts(MAX(0, frameCount - 50));
+	}
+	else {
+		curSeekTarget = seekTarget;
+	}
 
 	int err;
 	if (prevFrameIndex <= frameIndex) {
-		err = av_seek_frame(formatContext, videoStream, seekTarget, 0);
+		err = av_seek_frame(formatContext, videoStream, curSeekTarget, 0);
 	}
 	else {
-		err = av_seek_frame(formatContext, videoStream, seekTarget, AVSEEK_FLAG_BACKWARD);
+		err = av_seek_frame(formatContext, videoStream, curSeekTarget, AVSEEK_FLAG_BACKWARD);
 	}
 	if (err < 0) {
 		printf("%s", av_strerror(err, errStr, 100));
