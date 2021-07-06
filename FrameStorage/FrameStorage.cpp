@@ -23,8 +23,8 @@ int FrameStorage::getNumFrames() {
 }
 
 void FrameStorage::getFrameByIndex(int frameIndex, cv::Mat& cvFrame) {
-	avcodec_flush_buffers(codecContext);
-	char errStr[100];
+	//avcodec_flush_buffers(codecContext);
+	//char errStr[100];
 
 	std::cout << "Getting " + std::to_string(frameIndex) + " frame\n";
 	if (!formatContext) {
@@ -36,6 +36,8 @@ void FrameStorage::getFrameByIndex(int frameIndex, cv::Mat& cvFrame) {
 	std::cout << "want " << seekTarget << std::endl;
 	int64_t curSeekTarget;
 
+	//av_seek_frame fails if we want to seek to last 10-20 frame. 
+	//In this case we seek to 50 frames before and then decode untill we get the right frame.
 	int frameCount = getNumFrames();
 	if (frameIndex > frameCount - 50){
 		curSeekTarget = frameToPts(MAX(0, frameCount - 50));
@@ -44,15 +46,18 @@ void FrameStorage::getFrameByIndex(int frameIndex, cv::Mat& cvFrame) {
 		curSeekTarget = seekTarget;
 	}
 
-	int err;
+	int err = 0;
+	/*
 	if (prevFrameIndex <= frameIndex) {
 		err = av_seek_frame(formatContext, videoStream, curSeekTarget, 0);
 	}
 	else {
 		err = av_seek_frame(formatContext, videoStream, curSeekTarget, AVSEEK_FLAG_BACKWARD);
-	}
+	}	
+	*/
+
 	if (err < 0) {
-		printf("%s", av_strerror(err, errStr, 100));
+		//printf("%s", av_strerror(err, errStr, 100));
 		fprintf(stderr, "ffmpeg: av_seek_frame failed");
 		return;
 	}
@@ -114,6 +119,46 @@ void FrameStorage::getFrameByIndex(int frameIndex, cv::Mat& cvFrame) {
 	}
 }
 
+void FrameStorage::getFrameByIndexStable(int frameIndex, cv::Mat& cvFrame) {
+	//avcodec_flush_buffers(codecContext);
+	//char errStr[100];
+	std::cout << "Getting " + std::to_string(frameIndex) + " frame\n";
+	if (!formatContext) {
+		fprintf(stderr, "ffmpeg: empty format_context\n");
+		return;
+	}
+
+	int err = av_seek_frame(formatContext, videoStream, 0, AVSEEK_FLAG_BACKWARD);
+	if (err < 0) {
+		fprintf(stderr, "ffmpeg: av_seek_frame failed");
+		return;
+	}
+
+	int curFrame = 0;
+	int frame_finished;
+	while(curFrame < frameIndex) {
+		if (av_read_frame(formatContext, packet) < 0) {
+			fprintf(stderr, "ffmpeg: av_read_frame failed");
+			return;
+		}
+		if (packet->stream_index == videoStream) {
+			if (frameIndex - curFrame < 100) {
+				if (avcodec_decode_video2(codecContext, frame, &frame_finished, packet) < 0) {
+					fprintf(stderr, "ffmpeg: avcodec_decode_video2 failed\n");
+					return;
+				}
+			}
+			curFrame++;
+		}
+	}
+	if (sws_scale(imgConvertContext, frame->data, frame->linesize, 0, codecContext->height, framergb->data, framergb->linesize) < 0) {
+		fprintf(stderr, "ffmpeg: sws_scale failed\n");
+		return;
+	}
+	memcpy(cvFrame.data, framergb->data[0], 3 * frame->width * frame->height);
+	return;
+}
+
 void FrameStorage::storeFrame(cv::Mat& cvFrame, int64_t pts) {
 	if (sws_scale(imgConvertContext, &cvFrame.data, rgbLinesize, 0, codecContext->height, frame->data, frame->linesize) < 0) {
 		fprintf(stderr, "ffmpeg: sws_scale failed\n");
@@ -166,18 +211,18 @@ void FrameStorage::storeTheRest() {
 void FrameStorage::openForRead(std::string& filename) {
 	packet = av_packet_alloc();
 	if (!packet)
-		exit(1);
+		return;
 
 	frame = av_frame_alloc();
 	if (!frame) {
 		fprintf(stderr, "Could not allocate video frame\n");
-		exit(1);
+		return;
 	}
 
 	framergb = av_frame_alloc();
 	if (!framergb) {
 		fprintf(stderr, "Could not allocate video framergb\n");
-		exit(1);
+		return;
 	}
 
 	// Read file header and store info in AVFormatContext struct

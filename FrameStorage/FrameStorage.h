@@ -22,6 +22,7 @@ public:
 	FrameStorage();
 	int getNumFrames();
 	void getFrameByIndex(int, cv::Mat&);
+	void getFrameByIndexStable(int, cv::Mat&);
 	void storeFrame(cv::Mat&, int64_t);
 	void storeTheRest();
 	void openForRead(std::string&);
